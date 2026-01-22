@@ -1,0 +1,87 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --primary: #4F46E5;
+    --primary-soft: #EEF2FF;
+    --accent-green: #10B981;
+    --accent-purple: #8B5CF6;
+    --bg-main: #F8FAFC;
+    --bg-card: rgba(255, 255, 255, 0.8);
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #94A3B8;
+    --border-glass: rgba(255, 255, 255, 0.4);
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --radius: 16px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    /* Disable text selection globally per spec */
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    /* No scrolling on desktop */
+    cursor: default !important;
+    /* Force default cursor */
+}
+
+#root {
+    height: 100vh;
+}
+
+/* Layout */
+.dashboard-wrapper {
+    display: flex;
+    height: 100vh;
+    width: 100%;
+}
+
+.left-panel {
+    flex: 0 0 60%;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 80px;
+}
+
+.right-panel {
+    flex: 0 0 40%;
+    padding: 60px;
+    background: var(--bg-main);
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    z-index: 10;
+}
+
+/* Background Image with Blur and Overlay */
+.nature-bg {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: url('/custom_bg.jpg');
+    background-size: cover;
+    background-position: center;
+    filter: blur(8px) brightness(0.6);
+    z-index: -1;
+    transform: scale(1.1);
+    /* Prevent blur edges from showing */
+}
+
+.left-conte
