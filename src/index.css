@@ -1,27 +1,67 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nosifer&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Sansita+Swashed:wght@400;700&family=Alkatra:wght@400;700&family=Nosifer&display=swap');
 
 :root {
+    /* Calm Light Theme (Default) */
     --primary: #4F46E5;
     --primary-soft: #EEF2FF;
     --accent-green: #10B981;
     --accent-purple: #8B5CF6;
+
     --bg-main: #F8FAFC;
-    --bg-card: rgba(255, 255, 255, 0.45);
-    --text-primary: var(--neon-blue);
-    --text-secondary: var(--neon-purple);
-    --text-muted: var(--neon-pink);
+    --bg-card: rgba(255, 255, 255, 0.75);
+
+    --text-primary: #0F172A;
+    /* Slate 900 for max clarity */
+    --text-secondary: #000000;
+    /* Black for better readability */
+    --text-muted: #000000;
+
     --border-glass: rgba(255, 255, 255, 0.6);
+    --border-global: rgba(0, 0, 0, 0.12);
     --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
     --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
     --radius: 16px;
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    /* Neon Palette */
+    /* Preserve Neon Palette Vars for legacy or accents if needed, but not unused */
     --neon-blue: #0080FF;
     --neon-purple: #7000FF;
     --neon-pink: #D000BA;
     --neon-green: #00FF94;
     --neon-orange: #FF8A00;
+}
+
+.dark-theme {
+    --bg-main: #000000;
+    --bg-card: rgba(0, 0, 0, 0.45);
+    --text-primary: #E2E8F0;
+    --text-secondary: #94A3B8;
+    --text-muted: #64748B;
+    --primary-soft: rgba(79, 70, 229, 0.15);
+    --border-glass: rgba(0, 0, 0, 0.6);
+    --border-global: #000000;
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
+
+.dark-theme {
+    background-color: var(--bg-main);
+}
+
+.dark-theme .add-task-subtle {
+    background: #1E293B !important;
+    color: #E2E8F0;
+    border: 1.2px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-theme h3,
+.dark-theme button {
+    color: var(--text-primary);
+}
+
+/* Ensure 'Light' text toggle is visible in dark mode */
+.dark-theme .pill-toggle button {
+    color: var(--text-primary);
 }
 
 * {
@@ -34,7 +74,7 @@
 }
 
 body {
-    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    font-family: 'Sansita Swashed', cursive;
     background: var(--bg-main);
     color: var(--text-primary);
     height: 100vh;
@@ -97,7 +137,6 @@ body {
     position: relative;
 }
 
-/* Background Image with Blur and Overlay */
 .nature-bg {
     position: absolute;
     top: 0;
@@ -107,10 +146,25 @@ body {
     background-image: url('/menu_bg.jpg');
     background-size: cover;
     background-position: center;
-    filter: brightness(0.7);
+    filter: brightness(0.9);
     z-index: -1;
     transform: none;
-    /* Removed scaling and blur for sharp clarity */
+}
+
+.dark-theme .nature-bg {
+    filter: brightness(0.8) saturate(1.1);
+}
+
+.dark-theme .left-panel::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 0;
+    pointer-events: none;
 }
 
 .left-content {
@@ -121,34 +175,41 @@ body {
 
 /* Typography Improvements */
 .greeting {
-    font-family: 'Nosifer', cursive;
+    font-family: 'Sansita Swashed', cursive;
     font-size: 3.5rem;
-    /* Nosifer is very wide, reducing size slightly for better fit */
-    font-weight: 400;
-    letter-spacing: normal;
+    font-weight: 700;
     margin-bottom: 32px;
     color: #ffffff;
-    filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.4));
+    -webkit-text-stroke: 1.5px #000000;
+    /* Consistent black outline for clarity */
     -webkit-text-fill-color: initial;
-    background: none;
-    -webkit-background-clip: initial;
-    background-clip: initial;
+}
+
+.nosifer-font {
+    font-family: 'Nosifer', cursive !important;
+}
+
+.dark-theme .greeting {
+    -webkit-text-stroke: 2.5px #000000 !important;
+    /* Extra bold Black Outline for Dark Mode */
 }
 
 .gradient-text {
-    background: linear-gradient(135deg, var(--neon-blue), var(--neon-green));
+    background: linear-gradient(135deg, #F472B6, #A855F7);
+    /* Pink to Purple */
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    font-weight: 700;
+    font-weight: 900;
 }
 
 .gradient-text-alt {
-    background: linear-gradient(135deg, var(--neon-purple), var(--neon-pink));
+    background: linear-gradient(135deg, #A855F7, #EC4899);
+    /* Purple to Pink */
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    font-weight: 700;
+    font-weight: 900;
 }
 
 .quote-container {
@@ -165,21 +226,31 @@ body {
     padding-left: 24px;
 }
 
-/* Compact Cards */
+/* Compact Cards - Updated with Outline Style */
 .card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2));
-    backdrop-filter: blur(30px);
-    -webkit-backdrop-filter: blur(30px);
-    border: 1px solid var(--border-glass);
+    border: 1.5px solid var(--border-global) !important;
     border-radius: var(--radius);
     padding: 32px;
-    box-shadow: var(--shadow-sm);
+    box-shadow: none;
     transition: var(--transition);
+}
+
+/* Force zero blur for Routine/Stats pages in Light Theme to show the butterfly bg clearly */
+.routine-page .card,
+.routine-page .settings-card,
+.routine-page .achievement-row,
+.streaks-page .streak-hero,
+.streaks-page .calendar-card {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(255, 255, 255, 0.9) !important;
 }
 
 .card:hover {
     transform: translateY(-8px);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
+    /* Subtle shadow on hover */
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3));
 }
 
@@ -245,6 +316,7 @@ body {
     padding: 12px;
     border-radius: 12px;
     background: rgba(255, 255, 255, 0.4);
+    border: 1.2px solid var(--border-global);
     transition: var(--transition);
 }
 
@@ -257,7 +329,7 @@ body {
     justify-content: center;
     background: white;
     color: var(--primary);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    border: 1.2px solid var(--border-global);
 }
 
 .label-text {
@@ -283,7 +355,7 @@ body {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0.1));
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid var(--border-glass);
+    border: 1.5px solid var(--border-global) !important;
     padding: 8px 12px;
     border-radius: 100px;
     display: flex;
@@ -294,7 +366,7 @@ body {
 
 .nav-btn {
     background: none;
-    border: none;
+    border: 1.2px solid var(--border-global);
     padding: 10px 24px;
     border-radius: 100px;
     font-size: 0.85rem;
@@ -310,6 +382,7 @@ body {
 .nav-btn.active {
     background: var(--primary);
     color: white;
+    border-color: var(--primary);
 }
 
 /* Abstract 3D Blobs */
@@ -359,8 +432,8 @@ textarea {
     -webkit-backdrop-filter: blur(20px);
     border-radius: 32px;
     margin-bottom: 32px;
-    border: 1px solid var(--border-glass);
-    box-shadow: var(--shadow-sm);
+    border: 1.5px solid var(--border-global);
+    box-shadow: none;
 }
 
 .streak-count-large {
@@ -416,6 +489,7 @@ textarea {
     position: relative;
     transition: var(--transition);
     filter: grayscale(1) opacity(0.5);
+    border: 1.5px solid var(--border-global);
 }
 
 .hexagon-badge.unlocked {
@@ -439,14 +513,15 @@ textarea {
     color: #64748B;
 }
 
+/* Calendar Card Styles */
 .calendar-card {
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), rgba(255, 255, 255, 0.2));
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
     border-radius: 32px;
     padding: 32px;
-    box-shadow: var(--shadow-sm);
-    border: 1px solid var(--border-glass);
+    box-shadow: none;
+    border: 1.5px solid var(--border-global);
 }
 
 .calendar-header {
@@ -487,11 +562,26 @@ textarea {
     font-weight: 600;
     transition: var(--transition);
     color: var(--text-secondary);
+    border: 1px solid transparent;
+}
+
+/* Dark Theme Calendar Overrides */
+.dark-theme .calendar-card {
+    background: rgba(255, 255, 255, 0.6) !important;
+}
+
+.dark-theme .calendar-card .month-label,
+.dark-theme .calendar-card .calendar-day-label,
+.dark-theme .calendar-card .calendar-day,
+.dark-theme .calendar-card .nav-btn {
+    color: #000000 !important;
+    font-weight: 800 !important;
 }
 
 .calendar-day.completed {
     background: #FEF3C7;
     color: #D97706;
+    border-color: var(--border-global);
 }
 
 .calendar-day.streak {
@@ -501,7 +591,7 @@ textarea {
 }
 
 .calendar-day.today {
-    border: 2px solid var(--primary);
+    border: 1.5px solid var(--primary);
 }
 
 /* Daily Protocol UI Differentiation */
@@ -520,7 +610,7 @@ textarea {
     padding: 24px;
     position: relative;
     overflow: hidden;
-    border: 1px solid var(--border-glass);
+    border: 1.5px solid var(--border-global);
     transition: var(--transition);
     display: flex;
     flex-direction: column;
@@ -530,7 +620,7 @@ textarea {
 .protocol-card:hover {
     transform: translateY(-8px);
     background: linear-gradient(135deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.3));
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .accent-bar {
@@ -547,7 +637,7 @@ textarea {
     gap: 12px;
     margin-bottom: 16px;
     padding-bottom: 12px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1.2px solid var(--border-global);
 }
 
 .section-header h3 {
@@ -611,11 +701,13 @@ textarea {
     padding: 10px;
     border-radius: 12px;
     transition: var(--transition);
+    border: 1px solid transparent;
 }
 
 .task-row:hover {
     background: rgba(255, 255, 255, 0.3);
     backdrop-filter: blur(5px);
+    border-color: var(--border-global);
 }
 
 .task-row.completed {
@@ -630,7 +722,7 @@ textarea {
     width: 22px;
     height: 22px;
     border-radius: 50%;
-    border: 2px solid #E2E8F0;
+    border: 1.5px solid var(--border-global);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -678,10 +770,8 @@ textarea {
     -webkit-backdrop-filter: blur(40px);
     padding: 60px;
     border-radius: 40px;
-    border: 1px solid var(--border-glass);
-    text-align: center;
-    box-shadow: var(--shadow-md);
 }
+
 
 /* Reward System & Profile Styles */
 .profile-active-title {
@@ -706,4 +796,256 @@ textarea {
         transform: scale(1);
         opacity: 1;
     }
+}
+
+/* Profile & Gamification Enhancements */
+.avatar-large {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-global);
+    box-shadow: none;
+    object-fit: cover;
+    background: var(--primary-soft);
+}
+
+.achievement-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+}
+
+.achievement-card {
+    background: var(--bg-card);
+    padding: 16px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border-global);
+    text-align: center;
+    transition: var(--transition);
+}
+
+.achievement-locked {
+    filter: grayscale(1) opacity(0.5);
+    background: rgba(0, 0, 0, 0.05) !important;
+}
+
+.milestone-glow {
+    animation: milestonePulse 2s infinite alternate;
+    box-shadow: 0 0 15px var(--primary);
+}
+
+@keyframes milestonePulse {
+    from {
+        box-shadow: 0 0 5px var(--primary);
+    }
+
+    to {
+        box-shadow: 0 0 20px var(--primary);
+    }
+}
+
+.mission-progress-bar {
+    height: 8px;
+    background: var(--bg-main);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-top: 8px;
+    border: 1px solid var(--border-global);
+}
+
+.mission-progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.5s ease-out;
+}
+
+.edit-overlay {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: var(--primary);
+    color: white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 1.5px solid var(--border-global);
+}
+
+/* New Settings Page Elements */
+.action-btn-subtle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    background: var(--bg-main);
+    border: 1.5px solid var(--border-global) !important;
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.action-btn-subtle:hover {
+    background: var(--primary-soft);
+    border-color: var(--primary) !important;
+    transform: translateY(-2px);
+}
+
+.link-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: none;
+    border: 1.2px solid var(--border-global);
+    border-radius: 8px;
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.75rem;
+    cursor: pointer;
+    padding: 6px 12px;
+    margin-bottom: 4px;
+    opacity: 0.8;
+    transition: var(--transition);
+}
+
+.link-btn:hover {
+    opacity: 1;
+    background: var(--primary-soft);
+}
+
+select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%234F46E5' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'%3E%3C/path%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    border: 1.5px solid var(--border-global) !important;
+}
+
+input,
+textarea {
+    border: 1.5px solid var(--border-global) !important;
+    padding: 12px !important;
+    border-radius: 12px !important;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(30%) sepia(80%) saturate(5000%) hue-rotate(230deg) brightness(90%) contrast(90%);
+    cursor: pointer;
+}
+
+/* Dark Mode Input Improvements */
+.dark-theme input,
+.dark-theme textarea {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: #F1F5F9 !important;
+    border: 1.5px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+.dark-theme input::placeholder,
+.dark-theme textarea::placeholder {
+    color: rgba(241, 245, 249, 0.4) !important;
+}
+
+.dark-theme input:focus,
+.dark-theme textarea:focus {
+    background: rgba(255, 255, 255, 0.1) !important;
+    border-color: var(--primary) !important;
+}
+
+/* Settings Card - Ensuring Consistency */
+.settings-card {
+    border: 1.5px solid var(--border-global) !important;
+    border-radius: 16px !important;
+    background: var(--bg-card);
+    overflow: hidden;
+}
+
+/* Modal Panels */
+.profile-panel,
+.settings-panel {
+    border: 1.5px solid var(--border-global) !important;
+    border-radius: 24px !important;
+    box-shadow: none !important;
+}
+
+/* ===== UI VISUAL ENHANCEMENTS ===== */
+
+/* Glassmorphism Card Styles - Override with Outlines */
+.card {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1.5px solid var(--border-global) !important;
+    border-radius: 20px !important;
+    box-shadow: none !important;
+}
+
+
+.card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-theme .card {
+    background: rgba(0, 0, 0, 0.4) !important;
+    border: 1.5px solid var(--border-global) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+}
+
+.dark-theme .card:hover {
+    background: rgba(0, 0, 0, 0.6) !important;
+}
+
+/* Enhanced Background for Routine and Metrics Pages */
+.right-panel {
+    position: relative;
+    min-height: 100vh;
+}
+
+/* Background enhancement - Light theme */
+.right-panel>div[style*="backgroundImage"] {
+    position: fixed !important;
+    min-height: 100vh !important;
+    background-attachment: fixed !important;
+    filter: brightness(1.15) contrast(1.1) saturate(1.2) !important;
+}
+
+/* Gradient overlay for depth */
+.right-panel::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg,
+            rgba(255, 255, 255, 0.05) 0%,
+            rgba(255, 255, 255, 0.02) 50%,
+            rgba(0, 0, 0, 0.03) 100%);
+    pointer-events: none;
+    z-index: 0;
+}
+
+.right-panel>* {
+    position: relative;
+    z-index: 1;
+}
+
+.dark-theme .routine-page .settings-card,
+.dark-theme .routine-page .achievement-row {
+    background: rgba(0, 0, 0, 0.45) !important;
+    border: 1.5px solid var(--border-global) !important;
+    backdrop-filter: blur(8px) !important;
+    -webkit-backdrop-filter: blur(8px) !important;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark-theme .routine-page .achievement-row:hover {
+    background: rgba(0, 0, 0, 0.6) !important;
 }

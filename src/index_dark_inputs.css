@@ -1,0 +1,77 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nosifer&display=swap');
+
+:root {
+    /* Calm Light Theme (Default) */
+    --primary: #4F46E5;
+    --primary-soft: #EEF2FF;
+    --accent-green: #10B981;
+    --accent-purple: #8B5CF6;
+
+    --bg-main: #F8FAFC;
+    --bg-card: rgba(255, 255, 255, 0.75);
+
+    --text-primary: #0F172A;
+    /* Slate 900 for max clarity */
+    --text-secondary: #000000;
+    /* Black for better readability */
+    --text-muted: #000000;
+
+    --border-glass: rgba(255, 255, 255, 0.6);
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 10px 25px rgba(0, 0, 0, 0.08);
+    --radius: 16px;
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Preserve Neon Palette Vars for legacy or accents if needed, but not unused */
+    --neon-blue: #0080FF;
+    --neon-purple: #7000FF;
+    --neon-pink: #D000BA;
+    --neon-green: #00FF94;
+    --neon-orange: #FF8A00;
+}
+
+.dark-theme {
+    --bg-main: #0F172A;
+    --bg-card: rgba(30, 41, 59, 0.85);
+    --text-primary: #F1F5F9;
+    --text-secondary: #000000;
+    --text-muted: #000000;
+    /* Changed to black for better readability */
+    --primary-soft: rgba(79, 70, 229, 0.15);
+    --border-glass: rgba(255, 255, 255, 0.15);
+    --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.dark-theme .add-task-subtle {
+    color: #F1F5F9;
+}
+
+.dark-theme h3,
+.dark-theme button {
+    color: var(--text-primary);
+}
+
+/* Ensure 'Light' text toggle is visible in dark mode */
+.dark-theme .pill-toggle button {
+    color: var(--text-primary);
+}
+
+/* Dark Mode Input Improvements */
+.dark-theme input,
+.dark-theme textarea {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #F1F5F9 !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.dark-theme input::placeholder,
+.dark-theme textarea::placeholder {
+    color: rgba(241, 245, 249, 0.6) !important;
+}
+
+.dark-theme input:focus,
+.dark-theme textarea:focus {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border-color: var(--primary) !important;
+}
