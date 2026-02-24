@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, createContext, useContext } from 'r
 import { Home, Clock, Flame, Menu as MenuIcon, CheckCircle2, Circle, Sun, Moon, Volume2, VolumeX, Sparkles, BookOpen, Settings, X, RotateCcw, LogOut, Zap, Target, Award, ChevronLeft, ChevronRight, Plus, Trash2, Bell, Globe, Shield, Database, HelpCircle, User, Activity, Download, Upload, MessageSquare, ShieldCheck, Fingerprint, Palette, Camera, Image as ImageIcon, Edit2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { initialRoutine, quotes } from './data/routine';
-import { auth, db } from './firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+import { auth, db, googleProvider } from './firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup } from 'firebase/auth';
 import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
 import './App.css';
 
@@ -108,27 +108,14 @@ const App = () => {
   });
   const [newUnlock, setNewUnlock] = useState(null);
 
-  // Auth State Listener
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        setIsLoggedIn(true);
-        // Load data from Firestore
-        loadUserData(firebaseUser.uid);
-      } else {
-        setUser(null);
-        setIsLoggedIn(false);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // Load User Data from Firestore
-  const loadUserData = async (uid) => {
+  // Hydrate from Firestore on login
+  const loadUserData = async (uid, email) => {
     try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
+      const userRef = doc(db, 'users', uid);
+      const userDoc = await getDoc(userRef);
+
       if (userDoc.exists()) {
+        // Subsequent login: Fetch existing data
         const data = userDoc.data();
         if (data.profile) setProfile(data.profile);
         if (data.tasks) setTasks(data.tasks);
@@ -136,35 +123,75 @@ const App = () => {
         if (data.appSettings) setAppSettings(data.appSettings);
         if (data.streak !== undefined) setStreak(data.streak);
         if (data.theme) setTheme(data.theme);
+        if (data.unlockedTitles) setUnlockedTitles(data.unlockedTitles);
+        if (data.sections) setSections(data.sections);
+      } else {
+        // First login: Create initial document using local state as baseline (Migration)
+        const initialData = {
+          email,
+          uid,
+          streak,
+          tasks,
+          profile,
+          milestones,
+          appSettings,
+          theme,
+          unlockedTitles,
+          sections,
+          lastLogin: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        };
+        await setDoc(userRef, initialData);
       }
     } catch (error) {
-      console.error("Error loading user data:", error);
+      console.error("Error synchronizing with Firestore:", error);
     }
   };
 
-  // Sync Data to Firestore (Debounced)
+  // Auth State Listener
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setUser(firebaseUser);
+        setIsLoggedIn(true);
+        loadUserData(firebaseUser.uid, firebaseUser.email);
+      } else {
+        setUser(null);
+        setIsLoggedIn(false);
+        // Clear sensitive state on logout, but keep theme for UX
+        setProfile({ name: "Identity #001", avatar: "👤", diamonds: 0 });
+        setTasks(initialRoutine);
+        setStreak(0);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Real-time Sync (Debounced Auto-save)
   useEffect(() => {
     if (!user) return;
     const timeoutId = setTimeout(async () => {
       setIsSyncing(true);
       try {
         await setDoc(doc(db, 'users', user.uid), {
-          profile,
+          streak,
           tasks,
+          profile,
           milestones,
           appSettings,
-          streak,
           theme,
-          lastSynced: new Date().toISOString()
+          unlockedTitles,
+          sections,
+          lastLogin: new Date().toISOString()
         }, { merge: true });
       } catch (error) {
-        console.error("Error syncing user data:", error);
+        console.error("Sync error:", error);
       }
       setIsSyncing(false);
-    }, 2000); // 2 second debounce
+    }, 3000); // 3 second debounce to reduce database writes
 
     return () => clearTimeout(timeoutId);
-  }, [profile, tasks, milestones, appSettings, streak, theme, user]);
+  }, [profile, tasks, milestones, appSettings, streak, theme, user, unlockedTitles, sections]);
 
   const rewards = [
     { streak: 1, title: "Beginner 🌱", icon: "🌱" },
@@ -896,11 +923,11 @@ const TimelinePage = () => {
       {theme === 'light' && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
-          backgroundImage: "url('/butterfly_garden.jpg')",
+          backgroundImage: "url('/nature_vibe.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
-          filter: 'none',
+          filter: 'brightness(1.05) contrast(1.05)',
           mixBlendMode: 'normal',
           opacity: 1,
           zIndex: -1,
@@ -1102,11 +1129,11 @@ const StreaksPage = () => {
       {theme === 'light' && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
-          backgroundImage: "url('/butterfly_garden.jpg')",
+          backgroundImage: "url('/nature_vibe.jpg')",
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundAttachment: 'fixed',
-          filter: 'none',
+          filter: 'brightness(1.05) contrast(1.05)',
           mixBlendMode: 'normal',
           opacity: 1,
           zIndex: -1,
@@ -1849,6 +1876,19 @@ const AuthPage = ({ onLogin }) => {
     setLoading(false);
   };
 
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+      onLogin();
+    } catch (err) {
+      console.error("Google Auth Error:", err);
+      setError(err.message.replace('Firebase: ', ''));
+    }
+    setLoading(false);
+  };
+
   return (
     <div className="auth-container" style={{
       height: '100vh', width: '100vw', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -1896,9 +1936,35 @@ const AuthPage = ({ onLogin }) => {
           >
             {loading ? 'PROCESSING...' : (isSignUp ? 'REGISTER AGENT' : 'INITIALIZE SESSION')}
           </button>
+
+          {!isSignUp && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', margin: '8px 0' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }} />
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', fontWeight: 700 }}>OR</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }} />
+              </div>
+
+              <button
+                type="button"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+                style={{
+                  width: '100%', padding: '14px', borderRadius: '12px', border: '1px solid var(--border-glass)',
+                  background: 'white', color: 'var(--text-primary)', fontWeight: 700, fontSize: '0.9rem',
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.05)', opacity: loading ? 0.7 : 1
+                }}
+              >
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style={{ width: '18px' }} />
+                CONTINUE WITH GOOGLE
+              </button>
+            </>
+          )}
+
           <p
             onClick={() => setIsSignUp(!isSignUp)}
-            style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', marginTop: '8px' }}
+            style={{ fontSize: '0.8rem', color: 'var(--primary)', fontWeight: 700, cursor: 'pointer', marginTop: '16px' }}
           >
             {isSignUp ? 'Already have an identifier? Log in' : 'Need a new identifier? Register here'}
           </p>
