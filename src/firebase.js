@@ -2,14 +2,14 @@ import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Replace these placeholders with your Firebase project configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCh4yRn7DR_Jhap04vR_xS6DlbzDo6Shec",
-    authDomain: "todolist-4b308.firebaseapp.com",
-    projectId: "todolist-4b308",
-    storageBucket: "todolist-4b308.firebasestorage.app",
-    messagingSenderId: "616999908643",
-    appId: "1:616999908643:web:dd5cbcbed98edc83428896"
+  apiKey: "AIzaSyBAGUwHCTWdfsX8v7t3mWTOwC6RbPAWyTo",
+  authDomain: "todolist-2dece.firebaseapp.com",
+  projectId: "todolist-2dece",
+  storageBucket: "todolist-2dece.firebasestorage.app",
+  messagingSenderId: "305322956961",
+  appId: "1:305322956961:web:d4f55122f6b0f2a08e78e0",
+  measurementId: "G-0LW5HVQP08"
 };
 
 const app = initializeApp(firebaseConfig);

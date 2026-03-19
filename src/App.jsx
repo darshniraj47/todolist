@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { initialRoutine, quotes } from './data/routine';
 import { auth, db, googleProvider } from './firebase';
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, signInWithPopup } from 'firebase/auth';
-import { doc, getDoc, setDoc, onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, deleteDoc, writeBatch } from 'firebase/firestore';
 import './App.css';
 
 // Context for global state
@@ -71,7 +71,6 @@ const App = () => {
         dailyReminderTime: "08:00",
         streakReminderEnabled: true
       },
-      language: 'English',
       soundVibration: true,
       streakTracking: true,
       dailyTaskLimit: 10,
@@ -113,25 +112,62 @@ const App = () => {
     try {
       const userRef = doc(db, 'users', uid);
       const userDoc = await getDoc(userRef);
+      
+      let fetchedTasks = [];
+      try {
+        const tasksSnapshot = await getDocs(collection(db, 'users', uid, 'tasks'));
+        tasksSnapshot.forEach((d) => {
+            fetchedTasks.push({ id: d.id, ...d.data() });
+        });
+        fetchedTasks.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+      } catch (err) {
+        console.error("Failed to fetch tasks subcollection:", err);
+      }
 
       if (userDoc.exists()) {
         // Subsequent login: Fetch existing data
         const data = userDoc.data();
         if (data.profile) setProfile(data.profile);
-        if (data.tasks) setTasks(data.tasks);
         if (data.milestones) setMilestones(data.milestones);
         if (data.appSettings) setAppSettings(data.appSettings);
         if (data.streak !== undefined) setStreak(data.streak);
         if (data.theme) setTheme(data.theme);
         if (data.unlockedTitles) setUnlockedTitles(data.unlockedTitles);
         if (data.sections) setSections(data.sections);
+        
+        if (fetchedTasks.length > 0) {
+          setTasks(fetchedTasks);
+        } else if (data.tasks && data.tasks.length > 0) {
+          // Migration
+          setTasks(data.tasks);
+          data.tasks.forEach(async (t) => {
+            if (!t.createdAt) t.createdAt = new Date().toISOString();
+            await setDoc(doc(db, 'users', uid, 'tasks', (t.id || Date.now() + Math.random()).toString()), t);
+          });
+        } else {
+          // No tasks exist, load defaults
+          const newInitialTasks = initialRoutine.map((t, idx) => ({
+            ...t,
+            id: Date.now() + Math.random(),
+            sectionId: t.sectionId || (idx < 8 ? 'morning' : 'night'),
+            createdAt: new Date().toISOString()
+          }));
+          setTasks(newInitialTasks);
+          try {
+            const batch = writeBatch(db);
+            newInitialTasks.forEach(t => {
+               const newRef = doc(db, 'users', uid, 'tasks', t.id.toString());
+               batch.set(newRef, t);
+            });
+            await batch.commit();
+          } catch (err) { console.error(err); }
+        }
       } else {
         // First login: Create initial document using local state as baseline (Migration)
         const initialData = {
           email,
           uid,
           streak,
-          tasks,
           profile,
           milestones,
           appSettings,
@@ -142,6 +178,23 @@ const App = () => {
           createdAt: new Date().toISOString()
         };
         await setDoc(userRef, initialData);
+        
+        const newInitialTasks = initialRoutine.map((t, idx) => ({
+          ...t,
+          id: Date.now() + Math.random(),
+          sectionId: t.sectionId || (idx < 8 ? 'morning' : 'night'),
+          createdAt: new Date().toISOString()
+        }));
+        setTasks(newInitialTasks);
+        
+        try {
+          const batch = writeBatch(db);
+          newInitialTasks.forEach(t => {
+             const newRef = doc(db, 'users', uid, 'tasks', t.id.toString());
+             batch.set(newRef, t);
+          });
+          await batch.commit();
+        } catch (err) { console.error(err); }
       }
     } catch (error) {
       console.error("Error synchronizing with Firestore:", error);
@@ -152,6 +205,7 @@ const App = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (firebaseUser) {
+        setTasks([]); // Clear existing UI before loading tasks
         setUser(firebaseUser);
         setIsLoggedIn(true);
         loadUserData(firebaseUser.uid, firebaseUser.email);
@@ -160,7 +214,7 @@ const App = () => {
         setIsLoggedIn(false);
         // Clear sensitive state on logout, but keep theme for UX
         setProfile({ name: "Identity #001", avatar: "👤", diamonds: 0 });
-        setTasks(initialRoutine);
+        setTasks([]); // Clear tasks on logout to prevent duplicate rendering
         setStreak(0);
       }
     });
@@ -175,7 +229,6 @@ const App = () => {
       try {
         await setDoc(doc(db, 'users', user.uid), {
           streak,
-          tasks,
           profile,
           milestones,
           appSettings,
@@ -191,7 +244,7 @@ const App = () => {
     }, 3000); // 3 second debounce to reduce database writes
 
     return () => clearTimeout(timeoutId);
-  }, [profile, tasks, milestones, appSettings, streak, theme, user, unlockedTitles, sections]);
+  }, [profile, milestones, appSettings, streak, theme, user, unlockedTitles, sections]);
 
   const rewards = [
     { streak: 1, title: "Beginner 🌱", icon: "🌱" },
@@ -420,6 +473,14 @@ const App = () => {
   const toggleTask = (id) => {
     const newTasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
     setTasks(newTasks);
+    
+    // Save to Firestore subcollection
+    if (user && id) {
+       const updatedTask = newTasks.find(t => t.id === id);
+       if (updatedTask) {
+          setDoc(doc(db, 'users', user.uid, 'tasks', id.toString()), { completed: updatedTask.completed }, { merge: true }).catch(console.error);
+       }
+    }
 
     // Play sound if completing
     const task = newTasks.find(t => t.id === id);
@@ -479,10 +540,15 @@ const App = () => {
       sectionId,
       time: "Dynamic",
       icon: "📌",
-      completed: false
+      completed: false,
+      createdAt: new Date().toISOString()
     };
     setTasks([...tasks, newTask]);
     setProfile(prev => ({ ...prev, tasksAddedToday: prev.tasksAddedToday + 1 }));
+    
+    if (user) {
+       setDoc(doc(db, 'users', user.uid, 'tasks', newTask.id.toString()), newTask).catch(console.error);
+    }
   };
 
   const progress = Math.round((tasks.filter(t => t.completed).length / tasks.length) * 100);
@@ -490,13 +556,34 @@ const App = () => {
 
   const deleteTask = (id) => {
     setTasks(tasks.filter(t => t.id !== id));
+    if (user && id) {
+       deleteDoc(doc(db, 'users', user.uid, 'tasks', id.toString())).catch(console.error);
+    }
   };
 
-  const resetRoutine = () => {
-    setTasks(initialRoutine.map((t, idx) => ({
+  const resetRoutine = async () => {
+    const newInitialTasks = initialRoutine.map((t, idx) => ({
       ...t,
-      sectionId: t.sectionId || (idx < 8 ? 'morning' : 'night')
-    })));
+      id: Date.now() + Math.random(),
+      sectionId: t.sectionId || (idx < 8 ? 'morning' : 'night'),
+      createdAt: new Date().toISOString()
+    }));
+    setTasks(newInitialTasks);
+    
+    if (user) {
+      try {
+        const batch = writeBatch(db);
+        const snapshot = await getDocs(collection(db, 'users', user.uid, 'tasks'));
+        snapshot.docs.forEach((d) => {
+           batch.delete(d.ref);
+        });
+        newInitialTasks.forEach(t => {
+           const newRef = doc(db, 'users', user.uid, 'tasks', t.id.toString());
+           batch.set(newRef, t);
+        });
+        await batch.commit();
+      } catch (err) { console.error(err); }
+    }
   };
 
   const currentHour = new Date().getHours();
@@ -543,7 +630,6 @@ const App = () => {
 
       dailySystemTasks, setDailySystemTasks, isLoggedIn, setIsLoggedIn, t,
       dailyRewardClaimed, setDailyRewardClaimed,
-      sections, setSections,
       user, isSyncing
     }}>
       <AnimatePresence mode="wait">
@@ -879,11 +965,43 @@ const AchievementRow = ({ icon, label, active }) => (
   </div>
 );
 
+const getCurrentTask = (tasks) => {
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  let mostRecentIncompletePassed = null;
+  let maxPassedMins = -1;
+
+  tasks.forEach(task => {
+    if (task.completed || !task.time) return;
+    const match = task.time.match(/(\d+):(\d+)\s+(AM|PM)/i);
+    if (match) {
+      let hours = parseInt(match[1]);
+      if (match[3].toUpperCase() === 'PM' && hours < 12) hours += 12;
+      if (match[3].toUpperCase() === 'AM' && hours === 12) hours = 0;
+      const tMins = hours * 60 + parseInt(match[2]);
+
+      if (tMins <= currentMinutes && tMins > maxPassedMins) {
+        maxPassedMins = tMins;
+        mostRecentIncompletePassed = task.id;
+      }
+    }
+  });
+  return mostRecentIncompletePassed;
+};
+
 const TimelinePage = () => {
-  const { tasks, toggleTask, deleteTask, addTask, theme, sections, setSections, setTasks } = useContext(AppContext);
+  const { tasks, toggleTask, deleteTask, addTask, theme, sections, setSections, setTasks, resetRoutine } = useContext(AppContext);
   const [addingToSection, setAddingToSection] = useState(null);
   const [inlineTaskTitle, setInlineTaskTitle] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [activeTaskId, setActiveTaskId] = useState(null);
+
+  useEffect(() => {
+    const evaluate = () => setActiveTaskId(getCurrentTask(tasks));
+    evaluate();
+    const interval = setInterval(evaluate, 60000);
+    return () => clearInterval(interval);
+  }, [tasks]);
 
   // Editing State
   const [editingSectionId, setEditingSectionId] = useState(null);
@@ -919,21 +1037,7 @@ const TimelinePage = () => {
   }, [successMessage]);
 
   return (
-    <div className="right-panel routine-page" style={{ flex: '0 0 100%', padding: '60px', overflowY: 'auto' }}>
-      {theme === 'light' && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
-          backgroundImage: "url('/nature_vibe.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          filter: 'brightness(1.05) contrast(1.05)',
-          mixBlendMode: 'normal',
-          opacity: 1,
-          zIndex: -1,
-          pointerEvents: 'none'
-        }} />
-      )}
+    <div className={`right-panel routine-page task-page ${theme === 'light' ? 'light-theme' : ''}`} style={{ flex: '0 0 100%', padding: '60px', overflowY: 'auto' }}>
       {theme === 'dark' && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
@@ -948,9 +1052,21 @@ const TimelinePage = () => {
           pointerEvents: 'none'
         }} />
       )}
-      <header style={{ marginBottom: '40px' }}>
-        <h2 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 900 }}>Daily Protocol</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Precision mapping of your active timeline.</p>
+      <header style={{ marginBottom: '40px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <h2 className="gradient-text" style={{ fontSize: '2.5rem', fontWeight: 900 }}>Daily Protocol</h2>
+          <p style={{ color: 'var(--text-muted)' }}>Precision mapping of your active timeline.</p>
+        </div>
+        <button 
+          onClick={() => {
+            resetRoutine();
+            setSuccessMessage("Timeline Synced to latest Defaults!");
+          }}
+          className="add-task-subtle"
+          style={{ padding: '12px 24px', background: 'var(--primary)', color: 'white', fontWeight: 800, border: 'none', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 4px 15px rgba(79, 70, 229, 0.3)' }}
+        >
+          🔄 SYNC DEFAULTS
+        </button>
       </header>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '32px', alignItems: 'flex-start' }}>
@@ -1011,21 +1127,33 @@ const TimelinePage = () => {
               <div style={{ height: '1px', background: 'var(--border-glass)', width: '100%', opacity: 0.5 }} />
             </header>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {tasks.filter(t => t.sectionId === section.id).map(task => (
-                <div key={task.id} className="achievement-row" style={{
-                  padding: '16px',
-                  background: task.completed ? 'var(--primary-soft)' : 'var(--bg-card)',
-                  border: '1px solid var(--border-global)',
-                  borderRadius: '16px',
-                  gap: '16px',
-                  transition: 'transform 0.2s ease'
-                }}>
+            <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px', position: 'relative' }}>
+              <div style={{ position: 'absolute', left: '21px', top: '30px', bottom: '30px', width: '2px', background: 'var(--border-glass)' }} />
+              {tasks.filter(t => t.sectionId === section.id).map(task => {
+                const isCurrent = activeTaskId === task.id;
+                return (
+                <div key={task.id} style={{ display: 'flex', alignItems: 'flex-start', position: 'relative', marginBottom: '16px' }}>
+                  <div style={{ 
+                    position: 'absolute', left: '-1px', top: '24px', width: '12px', height: '12px', borderRadius: '50%',
+                    background: task.completed ? 'var(--accent-green)' : (isCurrent ? 'var(--primary)' : 'var(--bg-main)'),
+                    border: task.completed ? '2px solid var(--accent-green)' : (isCurrent ? '2px solid var(--primary)' : '2px solid var(--border-global)'),
+                    boxShadow: isCurrent && !task.completed ? '0 0 12px var(--primary)' : 'none',
+                    zIndex: 2, transition: '0.3s'
+                  }} />
+                  <div className="achievement-row" style={{
+                    flex: 1,
+                    marginLeft: '32px',
+                    padding: '16px',
+                    background: task.completed ? 'var(--primary-soft)' : (isCurrent ? 'rgba(255, 255, 255, 0.9)' : 'var(--bg-card)'),
+                    border: isCurrent && !task.completed ? '1.5px solid var(--primary)' : '1px solid var(--border-global)',
+                    transform: isCurrent && !task.completed ? 'scale(1.02)' : 'scale(1)',
+                    boxShadow: isCurrent && !task.completed ? '0 8px 25px rgba(79, 70, 229, 0.15)' : 'none',
+                    borderRadius: '16px',
+                    gap: '16px',
+                    transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease'
+                  }}>
                   <span style={{ fontSize: '1.6rem' }}>{task.icon || '📌'}</span>
                   {editingSectionId === section.id ? (
-                    // While editing section title, tasks are read-only (or could be editable too, but requirement said 'on clicking edit... tasks should be editable'. 
-                    // Let's make them renameable here or just keep current "Rename" feature if it existed, or add it.
-                    // Current implementation didn't have task renaming. I'll add simple prompt rename for now to satisfy "tasks... editable (rename)"
                     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, pointerEvents: 'none', opacity: 0.6 }}>
                       <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{task.title}</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{task.time || 'Routine Task'}</span>
@@ -1035,7 +1163,7 @@ const TimelinePage = () => {
                       <span style={{
                         fontWeight: 900,
                         fontSize: '1rem',
-                        background: task.completed ? 'none' : 'linear-gradient(135deg, #F472B6, #A855F7)',
+                        background: task.completed ? 'none' : (isCurrent ? 'linear-gradient(135deg, var(--primary), #a855f7)' : 'linear-gradient(135deg, #F472B6, #A855F7)'),
                         WebkitBackgroundClip: task.completed ? 'initial' : 'text',
                         WebkitTextFillColor: task.completed ? 'var(--text-muted)' : 'transparent',
                         color: task.completed ? 'var(--text-muted)' : 'transparent',
@@ -1043,7 +1171,7 @@ const TimelinePage = () => {
                       }}>
                         {task.title}
                       </span>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      <span style={{ fontSize: '0.8rem', color: isCurrent && !task.completed ? 'var(--primary)' : 'var(--text-muted)', fontWeight: 600 }}>
                         {task.time || 'Routine Task'}
                       </span>
                     </div>
@@ -1055,6 +1183,9 @@ const TimelinePage = () => {
                         const newTitle = prompt("Rename task:", task.title);
                         if (newTitle && newTitle.trim()) {
                           setTasks(tasks.map(t => t.id === task.id ? { ...t, title: newTitle.trim() } : t));
+                          if (user && task.id) {
+                            setDoc(doc(db, 'users', user.uid, 'tasks', task.id.toString()), { title: newTitle.trim() }, { merge: true }).catch(console.error);
+                          }
                           setSuccessMessage('Task updated successfully');
                         }
                       }}
@@ -1062,15 +1193,26 @@ const TimelinePage = () => {
                     >
                       <Edit2 size={18} strokeWidth={theme === 'dark' ? 2.5 : 1.5} />
                     </button>
-                    <button onClick={() => toggleTask(task.id)} style={{ background: 'none', border: 'none', color: task.completed ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}>
-                      {task.completed ? <CheckCircle2 size={24} strokeWidth={1.5} /> : <Circle size={24} strokeWidth={1.5} />}
-                    </button>
+                    <motion.button 
+                      whileTap={{ scale: 0.8 }}
+                      onClick={() => toggleTask(task.id)} 
+                      style={{ background: 'none', border: 'none', color: task.completed ? 'var(--accent-green)' : 'var(--text-muted)', cursor: 'pointer', display: 'flex' }}
+                    >
+                      <motion.div
+                        initial={false}
+                        animate={{ scale: task.completed ? [0.5, 1.2, 1] : 1, rotate: task.completed ? [0, 15, 0] : 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {task.completed ? <CheckCircle2 size={24} strokeWidth={1.5} /> : <Circle size={24} strokeWidth={1.5} />}
+                      </motion.div>
+                    </motion.button>
                     <button onClick={() => deleteTask(task.id)} style={{ background: 'none', border: 'none', color: '#FDA4AF', cursor: 'pointer', display: 'flex' }}>
                       <Trash2 size={18} strokeWidth={theme === 'dark' ? 2.5 : 1.5} />
                     </button>
                   </div>
                 </div>
-              ))}
+              </div>
+              )})}
 
               {addingToSection === section.id && (
                 <motion.div
@@ -1125,21 +1267,7 @@ const StreaksPage = () => {
   const prevMonth = () => setCurrentMonth(new Date(currentMonth.setMonth(currentMonth.getMonth() - 1)));
 
   return (
-    <div className="right-panel" style={{ flex: '0 0 100%', padding: '60px', overflowY: 'auto' }}>
-      {theme === 'light' && (
-        <div style={{
-          position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
-          backgroundImage: "url('/nature_vibe.jpg')",
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          backgroundAttachment: 'fixed',
-          filter: 'brightness(1.05) contrast(1.05)',
-          mixBlendMode: 'normal',
-          opacity: 1,
-          zIndex: -1,
-          pointerEvents: 'none'
-        }} />
-      )}
+    <div className={`right-panel stats-page ${theme === 'light' ? 'light-theme' : ''}`} style={{ flex: '0 0 100%', padding: '60px', overflowY: 'auto' }}>
       {theme === 'dark' && (
         <div style={{
           position: 'fixed', top: 0, left: 0, width: '100%', minHeight: '100vh',
@@ -1526,6 +1654,21 @@ const SettingsPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <button className="link-btn"><MessageSquare size={14} strokeWidth={1.5} /> {t('sendFeed')}</button>
               <button className="link-btn"><ShieldCheck size={14} strokeWidth={1.5} /> {t('privacy')}</button>
+              <div style={{ height: '1px', background: 'var(--border-glass)', margin: '8px 0' }} />
+              <button 
+                onClick={() => {
+                  import('firebase/auth').then(({ signOut }) => {
+                    signOut(auth).then(() => {
+                      setIsLoggedIn(false);
+                      setSuccessMessage("Logged out successfully");
+                    }).catch(console.error);
+                  });
+                }}
+                className="link-btn" 
+                style={{ color: '#E11D48', border: '1px solid #FECDD3', background: '#FFF1F2', justifyContent: 'center', marginTop: '4px' }}
+              >
+                Log Out
+              </button>
             </div>
           </div>
         </SectionGroup>
